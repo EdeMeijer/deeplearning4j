@@ -19,6 +19,8 @@
 package org.deeplearning4j.nn.layers;
 
 
+import lombok.Getter;
+import lombok.Setter;
 import org.deeplearning4j.berkeley.Pair;
 import org.deeplearning4j.eval.Evaluation;
 import org.deeplearning4j.nn.api.Layer;
@@ -51,6 +53,7 @@ public class LossLayer extends BaseLayer<org.deeplearning4j.nn.conf.layers.LossL
 
     //current input and label matrices
     protected INDArray labels;
+    @Getter @Setter private INDArray exampleWeights;
 
     private transient Solver solver;
 
@@ -83,7 +86,7 @@ public class LossLayer extends BaseLayer<org.deeplearning4j.nn.conf.layers.LossL
         ILossFunction lossFunction = layerConf().getLossFn();
 
         //double score = lossFunction.computeScore(getLabels2d(), preOut, layerConf().getActivationFunction(), maskArray, false);
-        double score = lossFunction.computeScore(getLabels2d(), preOut, layerConf().getActivationFn(), maskArray, false);
+        double score = lossFunction.computeScore(getLabels2d(), preOut, layerConf().getActivationFn(), maskArray, exampleWeights, false);
         score += fullNetworkL1 + fullNetworkL2;
         score /= getInputMiniBatchSize();
 
@@ -106,7 +109,7 @@ public class LossLayer extends BaseLayer<org.deeplearning4j.nn.conf.layers.LossL
 
         ILossFunction lossFunction = layerConf().getLossFn();
         //INDArray scoreArray = lossFunction.computeScoreArray(getLabels2d(),preOut,layerConf().getActivationFunction(),maskArray);
-        INDArray scoreArray = lossFunction.computeScoreArray(getLabels2d(),preOut,layerConf().getActivationFn(),maskArray);
+        INDArray scoreArray = lossFunction.computeScoreArray(getLabels2d(),preOut,layerConf().getActivationFn(),maskArray, exampleWeights);
         double l1l2 = fullNetworkL1 + fullNetworkL2;
         if(l1l2 != 0.0){
             scoreArray.addi(l1l2);
@@ -147,7 +150,7 @@ public class LossLayer extends BaseLayer<org.deeplearning4j.nn.conf.layers.LossL
         // delta calculation
         ILossFunction lossFunction = layerConf().getLossFn();
         //INDArray delta = lossFunction.computeGradient(getLabels2d(),preOut,layerConf().getActivationFunction(), maskArray);
-        INDArray delta = lossFunction.computeGradient(getLabels2d(),preOut,layerConf().getActivationFn(), maskArray);
+        INDArray delta = lossFunction.computeGradient(getLabels2d(),preOut,layerConf().getActivationFn(), maskArray, exampleWeights);
 
         // grab the empty gradient
         Gradient gradient = new DefaultGradient();
@@ -363,6 +366,7 @@ public class LossLayer extends BaseLayer<org.deeplearning4j.nn.conf.layers.LossL
     public void fit(INDArray input, INDArray labels) {
         setInput(input);
         setLabels(labels);
+        // TODO weights
         applyDropOutIfNecessary(true);
         if( solver == null ){
             solver = new Solver.Builder()

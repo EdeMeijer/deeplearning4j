@@ -25,6 +25,7 @@ import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.deeplearning4j.util.ModelSerializer;
 import org.junit.Test;
+import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
@@ -904,5 +905,37 @@ public class TestComputationGraphNetwork {
         ByteArrayInputStream bais = new ByteArrayInputStream(asBytes);
         ComputationGraph net = ModelSerializer.restoreComputationGraph(bais, true);
         assertEquals(7, net.getConfiguration().getIterationCount());
+    }
+    
+    @Test
+    public void testExampleWeights() {
+        ComputationGraphConfiguration conf = new NeuralNetConfiguration.Builder()
+            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+            .weightInit(WeightInit.XAVIER)
+            .iterations(100)
+            .seed(12345)
+            .graphBuilder()
+            .addInputs("in")
+            .addLayer("L1", new DenseLayer.Builder().nIn(1).nOut(1).activation(Activation.TANH).build(), "in")
+            .addLayer("out", new OutputLayer.Builder(LossFunctions.LossFunction.MSE).activation(Activation.IDENTITY).nIn(1).nOut(1).build(), "L1")
+            .setOutputs("out")
+            .pretrain(false).backprop(true)
+            .build();
+
+        ComputationGraph network = new ComputationGraph(conf);
+        network.init();
+
+        // 2 examples, -10 and 10. The 2nd example has twice the weight of the first, so the bias should be towards
+        // the positive sign (the global minimum of ((-10 - x) ^ 2) * 1 + ((10 - x) ^ 2) * 2 is 10 / 3 ~= 3.33)
+        DataSet dataSet = new DataSet(
+            Nd4j.zeros(2, 1),
+            Nd4j.create(new float[][]{{-10}, {10}}),
+            Nd4j.create(new float[]{1, 2}).transpose()
+        );
+        
+        network.fit(dataSet);
+        INDArray[] result = network.output(Nd4j.zeros(1, 1));
+
+        assertEquals(10d / 3, result[0].getDouble(0), 1e-4);
     }
 }

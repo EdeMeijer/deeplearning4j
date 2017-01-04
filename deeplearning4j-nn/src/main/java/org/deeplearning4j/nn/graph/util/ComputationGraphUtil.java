@@ -43,7 +43,7 @@ public class ComputationGraphUtil {
         INDArray[] fMaskNew = (fMask != null ? new INDArray[]{fMask} : null);
         INDArray[] lMaskNew = (lMask != null ? new INDArray[]{lMask} : null);
 
-        return new org.nd4j.linalg.dataset.MultiDataSet(fNew,lNew,fMaskNew,lMaskNew);
+        return new org.nd4j.linalg.dataset.MultiDataSet(fNew,lNew,fMaskNew,lMaskNew, dataSet.getExampleWeights());
     }
 
     /** Convert a DataSetIterator to a MultiDataSetIterator, via an adaptor class */

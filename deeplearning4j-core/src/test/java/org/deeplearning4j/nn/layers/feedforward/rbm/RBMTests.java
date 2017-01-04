@@ -239,7 +239,7 @@ public class RBMTests {
         INDArray vSample = dist.sample(vprob.shape());
 
         //double expectedScore = LossFunctions.LossFunction.MSE.getILossFunction().computeScore(input, vSample, "sigmoid", null, false);
-        double expectedScore = LossFunctions.LossFunction.MSE.getILossFunction().computeScore(input, vSample, new ActivationSigmoid(), null, false);
+        double expectedScore = LossFunctions.LossFunction.MSE.getILossFunction().computeScore(input, vSample, new ActivationSigmoid(), null, null, false);
 
         assertEquals(expectedScore, pair.getSecond(), 1e-8);
     }

@@ -18,6 +18,7 @@
 
 package org.deeplearning4j.nn.graph;
 
+import lombok.Getter;
 import lombok.Setter;
 import org.deeplearning4j.berkeley.Pair;
 import org.deeplearning4j.berkeley.Triple;
@@ -116,11 +117,12 @@ public class ComputationGraph implements Serializable, Model {
      */
     private int numOutputArrays;
 
-    //Current inputs, labels, input mask arrays and label mask arrays
+    //Current inputs, labels, input mask arrays, label mask arrays and example weights
     private transient INDArray[] inputs;
     private transient INDArray[] labels;
     private transient INDArray[] inputMaskArrays;
     private transient INDArray[] labelMaskArrays;
+    @Setter @Getter private transient INDArray exampleWeights;
 
     private NeuralNetConfiguration defaultConfiguration;
     private Collection<IterationListener> listeners = new ArrayList<>();
@@ -652,13 +654,9 @@ public class ComputationGraph implements Serializable, Model {
                     + " multiple inputs or outputs using a DataSet");
 
         boolean hasMaskArrays = dataSet.hasMaskArrays();
-        if (hasMaskArrays) {
-            INDArray[] fMask = (dataSet.getFeaturesMaskArray() != null ? new INDArray[]{dataSet.getFeaturesMaskArray()} : null);
-            INDArray[] lMask = (dataSet.getLabelsMaskArray() != null ? new INDArray[]{dataSet.getLabelsMaskArray()} : null);
-            fit(new INDArray[]{dataSet.getFeatures()}, new INDArray[]{dataSet.getLabels()}, fMask, lMask);
-        } else {
-            fit(new INDArray[]{dataSet.getFeatures()}, new INDArray[]{dataSet.getLabels()});
-        }
+        INDArray[] fMask = dataSet.getFeaturesMaskArray() != null ? new INDArray[]{dataSet.getFeaturesMaskArray()} : null;
+        INDArray[] lMask = dataSet.getLabelsMaskArray() != null ? new INDArray[]{dataSet.getLabelsMaskArray()} : null;
+        fit(new INDArray[]{dataSet.getFeatures()}, new INDArray[]{dataSet.getLabels()}, fMask, lMask, dataSet.getExampleWeights());
 
         if (hasMaskArrays) clearLayerMaskArrays();
     }
@@ -737,7 +735,13 @@ public class ComputationGraph implements Serializable, Model {
      * Fit the ComputationGraph using a MultiDataSet
      */
     public void fit(MultiDataSet multiDataSet) {
-        fit(multiDataSet.getFeatures(), multiDataSet.getLabels(), multiDataSet.getFeaturesMaskArrays(), multiDataSet.getLabelsMaskArrays());
+        fit(
+            multiDataSet.getFeatures(), 
+            multiDataSet.getLabels(), 
+            multiDataSet.getFeaturesMaskArrays(), 
+            multiDataSet.getLabelsMaskArrays(),
+            multiDataSet.getExampleWeights()
+        );
         if (multiDataSet.hasMaskArrays()) clearLayerMaskArrays();
     }
 
@@ -795,7 +799,7 @@ public class ComputationGraph implements Serializable, Model {
      * @param labels The labels
      */
     public void fit(INDArray[] inputs, INDArray[] labels) {
-        fit(inputs, labels, null, null);
+        fit(inputs, labels, null, null, null);
     }
 
     /**
@@ -806,16 +810,17 @@ public class ComputationGraph implements Serializable, Model {
      * @param featureMaskArrays Mask arrays for inputs/features. Typically used for RNN training. May be null.
      * @param labelMaskArrays   Mas arrays for the labels/outputs. Typically used for RNN training. May be null.
      */
-    public void fit(INDArray[] inputs, INDArray[] labels, INDArray[] featureMaskArrays, INDArray[] labelMaskArrays) {
+    public void fit(INDArray[] inputs, INDArray[] labels, INDArray[] featureMaskArrays, INDArray[] labelMaskArrays, INDArray exampleWeights) {
         if (flattenedGradients == null) initGradientsView();
 
         setInputs(inputs);
         setLabels(labels);
         setLayerMaskArrays(featureMaskArrays, labelMaskArrays);
+        setExampleWeights(exampleWeights);
         update(TaskUtils.buildTask(inputs, labels));
 
         if (configuration.isPretrain()) {
-            MultiDataSetIterator iter = new SingletonMultiDataSetIterator(new org.nd4j.linalg.dataset.MultiDataSet(inputs, labels, featureMaskArrays, labelMaskArrays));
+            MultiDataSetIterator iter = new SingletonMultiDataSetIterator(new org.nd4j.linalg.dataset.MultiDataSet(inputs, labels, featureMaskArrays, labelMaskArrays, exampleWeights));
             pretrain(iter);
         }
 
@@ -1194,6 +1199,7 @@ public class ComputationGraph implements Serializable, Model {
 
                     INDArray currLabels = labels[thisOutputNumber];
                     outputLayer.setLabels(currLabels);
+                    outputLayer.setExampleWeights(exampleWeights);
                 } else {
                     current.setEpsilon(externalEpsilons[thisOutputNumber]);
                     setVertexEpsilon[topologicalOrder[i]] = true;
@@ -1442,6 +1448,8 @@ public class ComputationGraph implements Serializable, Model {
         feedForward(dataSet.getFeatures(), training);
         INDArray[] labels = dataSet.getLabels();
         setLabels(labels);
+        INDArray exampleWeights = dataSet.getExampleWeights();
+        setExampleWeights(exampleWeights);
 
         //Score: sum of the scores for the various output layers...
         double l1 = calcL1();
@@ -1458,6 +1466,7 @@ public class ComputationGraph implements Serializable, Model {
 
             IOutputLayer ol = (IOutputLayer) outLayer;
             ol.setLabels(labels[i++]);
+            ol.setExampleWeights(exampleWeights);
 
             score += ol.computeScore(l1, l2, training);
 
@@ -1504,6 +1513,7 @@ public class ComputationGraph implements Serializable, Model {
         if (hasMaskArray) setLayerMaskArrays(data.getFeaturesMaskArrays(), data.getLabelsMaskArrays());
         feedForward(data.getFeatures(), false);
         setLabels(data.getLabels());
+        setExampleWeights(data.getExampleWeights());
 
         INDArray out = null;
 
@@ -1518,6 +1528,7 @@ public class ComputationGraph implements Serializable, Model {
 
             IOutputLayer ol = (IOutputLayer) outLayer;
             ol.setLabels(labels[i++]);
+            ol.setExampleWeights(exampleWeights);
 
             INDArray scoreCurrLayer = ol.computeScoreForExamples(l1, l2);
             if (out == null) out = scoreCurrLayer;
@@ -1538,7 +1549,7 @@ public class ComputationGraph implements Serializable, Model {
 
     @Override
     public void fit() {
-        fit(inputs, labels, inputMaskArrays, labelMaskArrays);
+        fit(inputs, labels, inputMaskArrays, labelMaskArrays, exampleWeights);
     }
 
     @Override
@@ -1762,6 +1773,7 @@ public class ComputationGraph implements Serializable, Model {
         labels = null;
         inputMaskArrays = null;
         labelMaskArrays = null;
+        exampleWeights = null;
     }
 
     //------------------------------------------------------------------------------

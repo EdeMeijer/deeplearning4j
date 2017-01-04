@@ -39,18 +39,20 @@ public class LossFunctionWrapper implements ReconstructionDistribution {
 
         //NOTE: The returned value here is NOT negative log probability, but it (the loss function value)
         // is equivalent, in terms of being something we want to minimize...
-
-        return lossFunction.computeScore(x, preOutDistributionParams, activationFn, null, average);
+        // TODO support per example weights
+        return lossFunction.computeScore(x, preOutDistributionParams, activationFn, null, null, average);
     }
 
     @Override
     public INDArray exampleNegLogProbability(INDArray x, INDArray preOutDistributionParams) {
-        return lossFunction.computeScoreArray(x, preOutDistributionParams, activationFn, null);
+        // TODO support per example weights
+        return lossFunction.computeScoreArray(x, preOutDistributionParams, activationFn, null, null);
     }
 
     @Override
     public INDArray gradient(INDArray x, INDArray preOutDistributionParams) {
-        return lossFunction.computeGradient(x, preOutDistributionParams, activationFn, null);
+        // TODO support per example weights
+        return lossFunction.computeGradient(x, preOutDistributionParams, activationFn, null, null);
     }
 
     @Override

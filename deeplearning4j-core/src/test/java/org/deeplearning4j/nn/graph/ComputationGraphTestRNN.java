@@ -540,7 +540,7 @@ public class ComputationGraphTestRNN {
                 assertNull(l.getMaskArray());
             }
 
-            net.fit(data.getFeatures(), data.getLabels(), data.getFeaturesMaskArrays(), data.getLabelsMaskArrays());
+            net.fit(data.getFeatures(), data.getLabels(), data.getFeaturesMaskArrays(), data.getLabelsMaskArrays(), data.getExampleWeights());
             assertNull(net.getInputMaskArrays());
             assertNull(net.getLabelMaskArrays());
             for (Layer l : net.getLayers()) {

@@ -556,6 +556,7 @@ public class MultiLayerNetwork implements Serializable, Classifier, Layer {
         if (getOutputLayer() instanceof IOutputLayer) {
             IOutputLayer ol = (IOutputLayer) getOutputLayer();
             ol.setLabels(labels);
+            // TODO weights
         }
     }
 
@@ -1094,6 +1095,7 @@ public class MultiLayerNetwork implements Serializable, Classifier, Layer {
             if (labels == null)
                 throw new IllegalStateException("No labels found");
             outputLayer.setLabels(labels);
+            // TODO weights
             currPair = outputLayer.backpropGradient(null);
 
             for( Map.Entry<String, INDArray> entry : currPair.getFirst().gradientForVariable().entrySet()) {
@@ -1224,6 +1226,7 @@ public class MultiLayerNetwork implements Serializable, Classifier, Layer {
         }
 
         outputLayer.setLabels(labels);
+        // TODO weights
 
         //calculate and apply the backward gradient for every layer
         int numLayers = getnLayers();
@@ -1728,6 +1731,7 @@ public class MultiLayerNetwork implements Serializable, Classifier, Layer {
             }
             ol.setInput(olInput);     //Feedforward doesn't include output layer for efficiency
             ol.setLabels(data.getLabels());
+            // TODO weights
             ol.computeScore(calcL1(true),calcL2(true), training);
             this.score = ol.score();
         } else {
@@ -1765,6 +1769,7 @@ public class MultiLayerNetwork implements Serializable, Classifier, Layer {
         if( getOutputLayer() instanceof IOutputLayer ){
             IOutputLayer ol = (IOutputLayer) getOutputLayer();
             ol.setLabels(data.getLabels());
+            // TODO weights
             double l1 = (addRegularizationTerms ? calcL1(true) : 0.0);
             double l2 = (addRegularizationTerms ? calcL2(true) : 0.0);
             out = ol.computeScoreForExamples(l1,l2);

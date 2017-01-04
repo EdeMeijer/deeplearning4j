@@ -39,6 +39,11 @@ public interface IOutputLayer extends Layer, Classifier {
      */
     INDArray getLabels();
 
+
+    void setExampleWeights(INDArray exampleWeights);
+
+    INDArray getExampleWeights();
+
     /**
      * Compute score after labels and input have been set.
      *
